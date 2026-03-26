@@ -9,7 +9,6 @@ from app.main import app
 from app.auth import get_password_hash, create_access_token
 from app.models import User
 
-
 # Use in-memory SQLite for tests
 TEST_DATABASE_URL = "sqlite:///:memory:"
 
@@ -40,6 +39,7 @@ def db_session(setup_database):
 @pytest.fixture
 def client(db_session):
     """Create a test client that shares the same db session."""
+
     def _override_get_db():
         yield db_session
 
