@@ -84,6 +84,8 @@ A full-stack To-Do application with JWT authentication, CRUD tasks, filterable d
 
 ## Quick Start with Docker
 
+application is available at this url : http://35.180.229.82:3000/login
+
 ### 1. Clone the repository
 
 ```bash
