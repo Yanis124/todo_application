@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: devops/Dockerfile.backend
+    container_name: todo-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-supersecretkey_change_in_production}
+      - DATABASE_URL=sqlite:///./data/todo.db
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - ALGORITHM=HS256
+    volumes:
+      - backend-data:/app/data
+    restart: unless-stopped
+    networks:
+      - todo-network
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: devops/Dockerfile.frontend
+    container_name: todo-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - todo-network
+
+volumes:
+  backend-data:
+    driver: local
+
+networks:
+  todo-network:
+    driver: bridge

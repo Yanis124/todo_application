@@ -1,0 +1,385 @@
+{
+  "project": "To-Do App",
+  "version": "1.0.0",
+  "stack": {
+    "backend": "FastAPI (Python)",
+    "database": "SQLite (via SQLAlchemy ORM)",
+    "frontend": "React",
+    "auth": "JWT (JSON Web Tokens)",
+    "api_docs": "Swagger (OpenAPI, built-in FastAPI)"
+  },
+  "modules": [
+    {
+      "id": "M-AUTH",
+      "name": "Authentication & Authorization",
+      "description": "JWT-based user authentication system"
+    },
+    {
+      "id": "M-TASKS",
+      "name": "Task Management (CRUD)",
+      "description": "Full CRUD operations on tasks with all required fields"
+    },
+    {
+      "id": "M-DASHBOARD",
+      "name": "Filterable Dashboard",
+      "description": "React dashboard with filtering capabilities on tasks"
+    },
+    {
+      "id": "M-API",
+      "name": "REST API with Swagger",
+      "description": "RESTful API endpoints documented via Swagger/OpenAPI"
+    }
+  ],
+  "features": [
+    {
+      "id": "F-001",
+      "module": "M-AUTH",
+      "title": "User Registration",
+      "description": "New users can register with email and password",
+      "priority": "required",
+      "acceptance_criteria": [
+        "POST /api/auth/register accepts email and password",
+        "Password is hashed before storage (bcrypt)",
+        "Duplicate email returns 409 Conflict",
+        "Successful registration returns 201 with user object (no password)"
+      ],
+      "spec_trace": "auth JWT"
+    },
+    {
+      "id": "F-002",
+      "module": "M-AUTH",
+      "title": "User Login (JWT)",
+      "description": "Registered users can log in and receive a JWT access token",
+      "priority": "required",
+      "acceptance_criteria": [
+        "POST /api/auth/login accepts email and password",
+        "Returns JWT access token on valid credentials",
+        "Returns 401 Unauthorized on invalid credentials",
+        "JWT contains user_id and expiration claim",
+        "Token expiry is configurable (default 30 minutes)"
+      ],
+      "spec_trace": "auth JWT"
+    },
+    {
+      "id": "F-003",
+      "module": "M-AUTH",
+      "title": "JWT Token Refresh",
+      "description": "Users can refresh their JWT token before expiry",
+      "priority": "optional",
+      "justification": "Not explicitly requested but improves UX for long sessions",
+      "acceptance_criteria": [
+        "POST /api/auth/refresh accepts a valid JWT and returns a new one",
+        "Expired tokens are rejected with 401"
+      ],
+      "spec_trace": "auth JWT (implied)"
+    },
+    {
+      "id": "F-004",
+      "module": "M-AUTH",
+      "title": "Protected Route Middleware",
+      "description": "All task endpoints require a valid JWT in Authorization header",
+      "priority": "required",
+      "acceptance_criteria": [
+        "Requests without Authorization header return 401",
+        "Requests with invalid/expired JWT return 401",
+        "Valid JWT grants access and injects current user into request context"
+      ],
+      "spec_trace": "auth JWT"
+    },
+    {
+      "id": "F-005",
+      "module": "M-TASKS",
+      "title": "Create Task",
+      "description": "Authenticated users can create a new task",
+      "priority": "required",
+      "acceptance_criteria": [
+        "POST /api/tasks creates a task with title, description, priority, status, due_date",
+        "Title is mandatory (400 if missing)",
+        "Priority accepts: low, medium, high",
+        "Status accepts: todo, in_progress, done",
+        "Due date is optional, ISO 8601 format",
+        "Task is associated with the authenticated user",
+        "Returns 201 with created task object"
+      ],
+      "spec_trace": "CRUD taches (titre, description, priorite, statut, date echeance)"
+    },
+    {
+      "id": "F-006",
+      "module": "M-TASKS",
+      "title": "Read Tasks (List)",
+      "description": "Authenticated users can list their own tasks",
+      "priority": "required",
+      "acceptance_criteria": [
+        "GET /api/tasks returns all tasks for the authenticated user",
+        "Users cannot see other users' tasks",
+        "Response includes pagination (limit/offset)",
+        "Returns 200 with array of task objects"
+      ],
+      "spec_trace": "CRUD taches"
+    },
+    {
+      "id": "F-007",
+      "module": "M-TASKS",
+      "title": "Read Task (Detail)",
+      "description": "Authenticated users can view a single task by ID",
+      "priority": "required",
+      "acceptance_criteria": [
+        "GET /api/tasks/{id} returns the task if owned by user",
+        "Returns 404 if task not found or not owned by user",
+        "Returns 200 with full task object"
+      ],
+      "spec_trace": "CRUD taches"
+    },
+    {
+      "id": "F-008",
+      "module": "M-TASKS",
+      "title": "Update Task",
+      "description": "Authenticated users can update their own tasks",
+      "priority": "required",
+      "acceptance_criteria": [
+        "PUT /api/tasks/{id} updates any combination of fields",
+        "Only the task owner can update",
+        "Validation rules same as creation",
+        "Returns 200 with updated task object",
+        "Returns 404 if task not found or not owned"
+      ],
+      "spec_trace": "CRUD taches"
+    },
+    {
+      "id": "F-009",
+      "module": "M-TASKS",
+      "title": "Delete Task",
+      "description": "Authenticated users can delete their own tasks",
+      "priority": "required",
+      "acceptance_criteria": [
+        "DELETE /api/tasks/{id} removes the task",
+        "Only the task owner can delete",
+        "Returns 204 No Content on success",
+        "Returns 404 if task not found or not owned"
+      ],
+      "spec_trace": "CRUD taches"
+    },
+    {
+      "id": "F-010",
+      "module": "M-DASHBOARD",
+      "title": "Task Dashboard View",
+      "description": "React frontend displays all user tasks in a dashboard layout",
+      "priority": "required",
+      "acceptance_criteria": [
+        "Dashboard shows task list with title, priority, status, due date",
+        "Dashboard loads on successful login",
+        "Tasks are fetched from GET /api/tasks",
+        "Loading and error states are handled"
+      ],
+      "spec_trace": "dashboard filtrable"
+    },
+    {
+      "id": "F-011",
+      "module": "M-DASHBOARD",
+      "title": "Dashboard Filters",
+      "description": "Users can filter tasks by priority, status, and due date range",
+      "priority": "required",
+      "acceptance_criteria": [
+        "Filter by priority (low, medium, high) - multi-select",
+        "Filter by status (todo, in_progress, done) - multi-select",
+        "Filter by due date range (from/to)",
+        "Filters can be combined",
+        "Filters are applied client-side or via query params on API",
+        "Clear filters button resets all filters"
+      ],
+      "spec_trace": "dashboard filtrable"
+    },
+    {
+      "id": "F-012",
+      "module": "M-DASHBOARD",
+      "title": "Task Create/Edit/Delete from Dashboard",
+      "description": "Users can perform CRUD operations directly from the dashboard UI",
+      "priority": "required",
+      "acceptance_criteria": [
+        "Add task button opens a creation form/modal",
+        "Edit button on each task opens pre-filled edit form/modal",
+        "Delete button with confirmation dialog",
+        "Dashboard refreshes after any CRUD operation"
+      ],
+      "spec_trace": "CRUD taches + dashboard filtrable"
+    },
+    {
+      "id": "F-013",
+      "module": "M-API",
+      "title": "Swagger/OpenAPI Documentation",
+      "description": "Auto-generated API documentation accessible via /docs",
+      "priority": "required",
+      "acceptance_criteria": [
+        "Swagger UI available at /docs",
+        "All endpoints documented with request/response schemas",
+        "Authentication scheme (Bearer JWT) documented",
+        "Try-it-out functionality works"
+      ],
+      "spec_trace": "API REST avec Swagger"
+    },
+    {
+      "id": "F-014",
+      "module": "M-API",
+      "title": "API Error Handling",
+      "description": "Consistent error response format across all endpoints",
+      "priority": "required",
+      "acceptance_criteria": [
+        "All errors return JSON with 'detail' field",
+        "Validation errors return 422 with field-level details",
+        "Consistent HTTP status codes (400, 401, 404, 409, 422, 500)"
+      ],
+      "spec_trace": "API REST (best practice)"
+    },
+    {
+      "id": "F-015",
+      "module": "M-API",
+      "title": "Server-side Task Filtering",
+      "description": "API supports query parameters for filtering tasks",
+      "priority": "required",
+      "acceptance_criteria": [
+        "GET /api/tasks?priority=high&status=todo filters results",
+        "GET /api/tasks?due_before=2025-12-31&due_after=2025-01-01 filters by date range",
+        "Multiple filter params can be combined"
+      ],
+      "spec_trace": "dashboard filtrable + API REST"
+    },
+    {
+      "id": "F-016",
+      "module": "M-DASHBOARD",
+      "title": "Login/Register UI",
+      "description": "React pages for user login and registration",
+      "priority": "required",
+      "acceptance_criteria": [
+        "Login page with email/password fields",
+        "Register page with email/password/confirm password fields",
+        "Client-side validation (email format, password min length)",
+        "JWT token stored securely (httpOnly cookie or localStorage)",
+        "Redirect to dashboard on successful login",
+        "Logout button clears token and redirects to login"
+      ],
+      "spec_trace": "auth JWT (frontend)"
+    },
+    {
+      "id": "F-017",
+      "module": "M-TASKS",
+      "title": "Task Search by Title",
+      "description": "Users can search tasks by title keyword",
+      "priority": "optional",
+      "justification": "Not explicitly requested but natural UX enhancement for dashboard",
+      "acceptance_criteria": [
+        "GET /api/tasks?search=keyword filters by title containing keyword",
+        "Search input field on dashboard"
+      ],
+      "spec_trace": "dashboard filtrable (implied)"
+    },
+    {
+      "id": "F-018",
+      "module": "M-TASKS",
+      "title": "Task Sorting",
+      "description": "Users can sort tasks by priority, status, due date, or creation date",
+      "priority": "optional",
+      "justification": "Not explicitly requested but natural complement to filtering",
+      "acceptance_criteria": [
+        "GET /api/tasks?sort_by=priority&order=asc sorts results",
+        "Sort controls on dashboard columns"
+      ],
+      "spec_trace": "dashboard filtrable (implied)"
+    }
+  ],
+  "out_of_scope": [
+    {
+      "item": "Role-based access control (RBAC)",
+      "justification": "Specs mention auth but not roles/permissions beyond task ownership"
+    },
+    {
+      "item": "Real-time updates (WebSockets)",
+      "justification": "Not mentioned in specs; REST API is sufficient"
+    },
+    {
+      "item": "File attachments on tasks",
+      "justification": "Not mentioned in specs"
+    },
+    {
+      "item": "Email notifications / reminders",
+      "justification": "Not mentioned in specs"
+    },
+    {
+      "item": "Task sharing / collaboration",
+      "justification": "Not mentioned in specs; tasks are per-user"
+    },
+    {
+      "item": "Mobile app",
+      "justification": "Stack specifies React (web); no mobile requirement"
+    }
+  ],
+  "user_journeys": [
+    {
+      "id": "UJ-001",
+      "title": "New User Registration & First Task",
+      "steps": [
+        "User navigates to /register",
+        "User fills email and password, submits",
+        "System creates account, redirects to login",
+        "User logs in, receives JWT",
+        "User is redirected to dashboard (empty)",
+        "User clicks Add Task, fills form, submits",
+        "Task appears on dashboard"
+      ]
+    },
+    {
+      "id": "UJ-002",
+      "title": "Manage Tasks",
+      "steps": [
+        "User logs in",
+        "Dashboard shows existing tasks",
+        "User edits a task status from todo to in_progress",
+        "User deletes a completed task",
+        "Dashboard updates accordingly"
+      ]
+    },
+    {
+      "id": "UJ-003",
+      "title": "Filter Dashboard",
+      "steps": [
+        "User logs in, sees all tasks",
+        "User selects filter: priority = high",
+        "Dashboard shows only high-priority tasks",
+        "User adds filter: status = todo",
+        "Dashboard shows only high-priority todo tasks",
+        "User clears filters, all tasks shown again"
+      ]
+    }
+  ],
+  "constraints": [
+    {
+      "id": "C-001",
+      "type": "technology",
+      "description": "Backend must use FastAPI (Python)"
+    },
+    {
+      "id": "C-002",
+      "type": "technology",
+      "description": "Database must use SQLite"
+    },
+    {
+      "id": "C-003",
+      "type": "technology",
+      "description": "Frontend must use React"
+    },
+    {
+      "id": "C-004",
+      "type": "security",
+      "description": "Authentication must use JWT tokens"
+    },
+    {
+      "id": "C-005",
+      "type": "documentation",
+      "description": "API must be documented with Swagger/OpenAPI"
+    },
+    {
+      "id": "C-006",
+      "type": "data",
+      "description": "Tasks must have fields: title, description, priority, status, due_date"
+    }
+  ]
+}

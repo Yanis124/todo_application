@@ -1,0 +1,437 @@
+{
+  "project": "todo-app",
+  "version": "1.2.0",
+  "description": "Shared dependencies and interface contracts for the To-Do application (aligned with feature_list v1 and actual implementation, post-fix)",
+
+  "backend": {
+    "framework": "FastAPI",
+    "python_version": "3.11",
+    "entry_point": "app/main.py",
+
+    "file_structure": {
+      "app/main.py": "FastAPI app creation, CORS, router includes, table creation, root and health endpoints",
+      "app/config.py": "Settings class (pydantic-settings) with env vars",
+      "app/database.py": "SQLAlchemy engine, SessionLocal, Base, get_db dependency",
+      "app/models.py": "User and Task SQLAlchemy models + TaskPriority and TaskStatus enums",
+      "app/schemas.py": "Pydantic schemas: UserCreate, LoginRequest (email-based), UserResponse, TaskCreate, TaskUpdate, TaskResponse, DashboardStats, Token, TokenData",
+      "app/auth.py": "Security functions: verify_password, get_password_hash, create_access_token, get_current_user (FastAPI Depends)",
+      "app/routers/__init__.py": "Router package init",
+      "app/routers/auth_router.py": "Auth router: POST /api/auth/register (201, 409), POST /api/auth/login (200, 401), GET /api/auth/me (200)",
+      "app/routers/task_router.py": "Task router: GET/POST /api/tasks/, GET/PUT/DELETE /api/tasks/{id} with filtering",
+      "app/routers/dashboard_router.py": "Dashboard router: GET /api/dashboard/stats"
+    },
+
+    "dependencies": [
+      "fastapi>=0.104.0",
+      "uvicorn[standard]>=0.24.0",
+      "sqlalchemy>=2.0.0",
+      "pydantic>=2.5.0",
+      "pydantic-settings>=2.1.0",
+      "python-jose[cryptography]>=3.3.0",
+      "bcrypt>=4.0.0",
+      "python-multipart>=0.0.6",
+      "email-validator>=2.1.0",
+      "pytest>=7.4.0",
+      "httpx>=0.25.0",
+      "pytest-asyncio>=0.23.0"
+    ],
+
+    "models": {
+      "User": {
+        "table_name": "users",
+        "fields": {
+          "id": {"type": "Integer", "primary_key": true, "index": true},
+          "username": {"type": "String", "unique": true, "nullable": false, "index": true},
+          "email": {"type": "String", "unique": true, "nullable": false, "index": true},
+          "hashed_password": {"type": "String", "nullable": false},
+          "created_at": {"type": "DateTime", "default": "utcnow"}
+        },
+        "relationships": {
+          "tasks": {"target": "Task", "back_populates": "owner"}
+        }
+      },
+      "Task": {
+        "table_name": "tasks",
+        "fields": {
+          "id": {"type": "Integer", "primary_key": true, "index": true},
+          "title": {"type": "String", "nullable": false},
+          "description": {"type": "String", "default": ""},
+          "priority": {"type": "Enum(TaskPriority)", "default": "medium"},
+          "status": {"type": "Enum(TaskStatus)", "default": "todo"},
+          "due_date": {"type": "DateTime", "nullable": true},
+          "owner_id": {"type": "Integer", "foreign_key": "users.id", "nullable": false},
+          "created_at": {"type": "DateTime", "default": "utcnow"},
+          "updated_at": {"type": "DateTime", "default": "utcnow", "onupdate": "utcnow"}
+        },
+        "relationships": {
+          "owner": {"target": "User", "back_populates": "tasks"}
+        }
+      }
+    },
+
+    "enums": {
+      "TaskPriority": ["low", "medium", "high"],
+      "TaskStatus": ["todo", "in_progress", "done"]
+    },
+
+    "schemas": {
+      "UserCreate": {
+        "fields": {
+          "username": {"type": "str", "required": true, "min_length": 3, "max_length": 50},
+          "email": {"type": "str", "required": true, "min_length": 5, "max_length": 100},
+          "password": {"type": "str", "required": true, "min_length": 6}
+        }
+      },
+      "LoginRequest": {
+        "fields": {
+          "email": {"type": "str", "required": true},
+          "password": {"type": "str", "required": true}
+        },
+        "NOTE": "FIXED: Now uses email-based login per feature_list F-002."
+      },
+      "UserResponse": {
+        "fields": {
+          "id": {"type": "int"},
+          "username": {"type": "str"},
+          "email": {"type": "str"},
+          "created_at": {"type": "datetime"}
+        },
+        "config": {"from_attributes": true}
+      },
+      "TaskCreate": {
+        "fields": {
+          "title": {"type": "str", "required": true, "min_length": 1, "max_length": 200},
+          "description": {"type": "Optional[str]", "default": ""},
+          "priority": {"type": "TaskPriority", "default": "medium"},
+          "status": {"type": "TaskStatus", "default": "todo"},
+          "due_date": {"type": "Optional[datetime]", "default": null}
+        }
+      },
+      "TaskUpdate": {
+        "fields": {
+          "title": {"type": "Optional[str]", "min_length": 1, "max_length": 200},
+          "description": {"type": "Optional[str]"},
+          "priority": {"type": "Optional[TaskPriority]"},
+          "status": {"type": "Optional[TaskStatus]"},
+          "due_date": {"type": "Optional[datetime]"}
+        }
+      },
+      "TaskResponse": {
+        "fields": {
+          "id": {"type": "int"},
+          "title": {"type": "str"},
+          "description": {"type": "str"},
+          "priority": {"type": "TaskPriority"},
+          "status": {"type": "TaskStatus"},
+          "due_date": {"type": "Optional[datetime]"},
+          "created_at": {"type": "datetime"},
+          "updated_at": {"type": "datetime"},
+          "owner_id": {"type": "int"}
+        },
+        "config": {"from_attributes": true}
+      },
+      "DashboardStats": {
+        "fields": {
+          "total_tasks": {"type": "int"},
+          "todo_count": {"type": "int"},
+          "in_progress_count": {"type": "int"},
+          "done_count": {"type": "int"},
+          "overdue_count": {"type": "int"},
+          "high_priority_count": {"type": "int"}
+        }
+      },
+      "Token": {
+        "fields": {
+          "access_token": {"type": "str"},
+          "token_type": {"type": "str", "default": "bearer"}
+        }
+      },
+      "TokenData": {
+        "fields": {
+          "user_id": {"type": "Optional[int]"}
+        }
+      }
+    },
+
+    "api_endpoints": {
+      "root": {
+        "prefix": "/",
+        "tag": "Root",
+        "endpoints": [
+          {"method": "GET", "path": "/", "response": "{message, docs}", "status_code": 200, "auth_required": false}
+        ]
+      },
+      "health": {
+        "prefix": "/",
+        "tag": "Health",
+        "endpoints": [
+          {"method": "GET", "path": "/health", "response": "{status: healthy}", "status_code": 200, "auth_required": false}
+        ]
+      },
+      "auth": {
+        "prefix": "/api/auth",
+        "tag": "Authentication",
+        "endpoints": [
+          {
+            "method": "POST",
+            "path": "/register",
+            "request_body": "UserCreate",
+            "response": "UserResponse",
+            "status_code": 201,
+            "auth_required": false,
+            "error_codes": [409, 422],
+            "description": "Register a new user. Returns 409 for duplicate email/username (FIXED)."
+          },
+          {
+            "method": "POST",
+            "path": "/login",
+            "request_body": "LoginRequest",
+            "response": "Token",
+            "status_code": 200,
+            "auth_required": false,
+            "error_codes": [401],
+            "description": "Login with email and password, receive JWT token (FIXED: now email-based)."
+          },
+          {
+            "method": "GET",
+            "path": "/me",
+            "response": "UserResponse",
+            "status_code": 200,
+            "auth_required": true,
+            "description": "Get current authenticated user profile"
+          }
+        ]
+      },
+      "tasks": {
+        "prefix": "/api/tasks",
+        "tag": "Tasks",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/",
+            "query_params": {
+              "status": "Optional[TaskStatus]",
+              "priority": "Optional[TaskPriority]",
+              "due_before": "Optional[datetime]",
+              "due_after": "Optional[datetime]",
+              "search": "Optional[str]",
+              "skip": "int (default=0)",
+              "limit": "int (default=100, max=1000)"
+            },
+            "response": "List[TaskResponse]",
+            "status_code": 200,
+            "auth_required": true,
+            "description": "List tasks for current user with optional filters"
+          },
+          {
+            "method": "POST",
+            "path": "/",
+            "request_body": "TaskCreate",
+            "response": "TaskResponse",
+            "status_code": 201,
+            "auth_required": true
+          },
+          {
+            "method": "GET",
+            "path": "/{task_id}",
+            "response": "TaskResponse",
+            "status_code": 200,
+            "auth_required": true,
+            "error_codes": [404]
+          },
+          {
+            "method": "PUT",
+            "path": "/{task_id}",
+            "request_body": "TaskUpdate",
+            "response": "TaskResponse",
+            "status_code": 200,
+            "auth_required": true,
+            "error_codes": [404]
+          },
+          {
+            "method": "DELETE",
+            "path": "/{task_id}",
+            "response": null,
+            "status_code": 204,
+            "auth_required": true,
+            "error_codes": [404]
+          }
+        ]
+      },
+      "dashboard": {
+        "prefix": "/api/dashboard",
+        "tag": "Dashboard",
+        "endpoints": [
+          {
+            "method": "GET",
+            "path": "/stats",
+            "response": "DashboardStats",
+            "status_code": 200,
+            "auth_required": true,
+            "description": "Get dashboard statistics for current user"
+          }
+        ]
+      }
+    },
+
+    "security": {
+      "jwt": {
+        "file": "app/auth.py",
+        "algorithm": "HS256",
+        "token_expire_minutes": 30,
+        "functions": [
+          {"name": "create_access_token", "params": "data: dict, expires_delta: Optional[timedelta] = None", "returns": "str"},
+          {"name": "get_current_user", "params": "token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)", "returns": "User"}
+        ]
+      },
+      "password": {
+        "file": "app/auth.py",
+        "scheme": "bcrypt (direct, not passlib)",
+        "functions": [
+          {"name": "get_password_hash", "params": "password: str", "returns": "str"},
+          {"name": "verify_password", "params": "plain_password: str, hashed_password: str", "returns": "bool"}
+        ]
+      }
+    },
+
+    "config": {
+      "file": "app/config.py",
+      "class_name": "Settings",
+      "fields": {
+        "SECRET_KEY": {"type": "str", "default": "your-secret-key-change-in-production"},
+        "ALGORITHM": {"type": "str", "default": "HS256"},
+        "ACCESS_TOKEN_EXPIRE_MINUTES": {"type": "int", "default": 30},
+        "DATABASE_URL": {"type": "str", "default": "sqlite:///./todo.db"}
+      }
+    },
+
+    "database": {
+      "file": "app/database.py",
+      "exports": ["engine", "SessionLocal", "Base", "get_db"]
+    }
+  },
+
+  "frontend": {
+    "framework": "React 18",
+    "build_tool": "Vite",
+    "language": "JavaScript (JSX)",
+    "entry_point": "src/main.jsx",
+
+    "file_structure": {
+      "src/main.jsx": "React root render with BrowserRouter",
+      "src/App.jsx": "Route definitions with token-based auth gating, login/register/dashboard routing",
+      "src/api.js": "Axios instance with JWT interceptor + authAPI (register, login, getMe) + tasksAPI (list, create, get, update, delete) + dashboardAPI (getStats)",
+      "src/index.css": "Global styles",
+      "src/components/Login.jsx": "Login form (email + password) with error handling",
+      "src/components/Register.jsx": "Registration form (username + email + password) with error handling",
+      "src/components/Dashboard.jsx": "Main dashboard with task list, filters, stats, and CRUD modals",
+      "src/components/TaskModal.jsx": "Modal form for creating/editing tasks"
+    },
+    "NOTE": "Developer simplified frontend structure: single api.js instead of separate files, components instead of pages+components. Functionally equivalent.",
+
+    "dependencies": [
+      "react@^18.2.0",
+      "react-dom@^18.2.0",
+      "react-router-dom@^6.20.0",
+      "axios@^1.6.0"
+    ],
+
+    "api_base_url": "/api (relative, proxied by Vite dev server or nginx)",
+
+    "routes": [
+      {"path": "/login", "component": "Login", "protected": false},
+      {"path": "/register", "component": "Register", "protected": false},
+      {"path": "*", "component": "Navigate to /login (when not authenticated)", "protected": false},
+      {"path": "/", "component": "Dashboard", "protected": true}
+    ],
+
+    "token_storage": {
+      "method": "localStorage",
+      "key": "token",
+      "NOTE": "Frontend uses 'token' as localStorage key (not 'access_token')"
+    }
+  },
+
+  "cross_module_contracts": {
+    "authentication_flow": {
+      "description": "Frontend sends {email, password} to POST /api/auth/login, receives {access_token, token_type}, stores access_token in localStorage as 'token', sends as Authorization: Bearer <token> header on all subsequent requests",
+      "token_header": "Authorization",
+      "token_prefix": "Bearer",
+      "token_storage": "localStorage",
+      "token_key": "token"
+    },
+    "error_format": {
+      "format": {"detail": "string or object"},
+      "common_codes": {
+        "401": "Unauthorized / invalid token",
+        "404": "Resource not found",
+        "409": "Conflict (duplicate resource)",
+        "422": "Validation error (Pydantic)"
+      }
+    },
+    "cors": {
+      "allowed_origins": ["http://localhost:3000", "http://localhost:5173"],
+      "allowed_methods": ["*"],
+      "allowed_headers": ["*"],
+      "allow_credentials": true
+    },
+    "pagination": {
+      "query_params": {
+        "skip": {"type": "int", "default": 0},
+        "limit": {"type": "int", "default": 100, "max": 1000}
+      }
+    }
+  },
+
+  "testing": {
+    "backend": {
+      "framework": "pytest",
+      "test_files": [
+        "tests/backend/test_auth.py",
+        "tests/backend/test_tasks.py",
+        "tests/backend/test_dashboard.py",
+        "tests/backend/test_root.py"
+      ],
+      "test_database": "sqlite:///./test.db (in-memory via conftest.py)",
+      "fixtures": ["client", "db_session", "test_user", "auth_headers"]
+    }
+  },
+
+  "devops": {
+    "docker": {
+      "backend_port": 8000,
+      "frontend_port": 3000,
+      "compose_services": ["backend", "frontend"]
+    },
+    "environment_variables": {
+      "SECRET_KEY": "Required for JWT signing",
+      "DATABASE_URL": "SQLite connection string",
+      "CORS_ORIGINS": "Comma-separated allowed origins"
+    }
+  },
+
+  "resolved_issues": [
+    {
+      "id": "ISSUE-001",
+      "severity": "HIGH",
+      "description": "Login now uses email instead of username (backend fixed). Feature list F-002 compliance.",
+      "status": "FIXED (backend), PENDING (frontend Login.jsx still sends username)"
+    },
+    {
+      "id": "ISSUE-002",
+      "severity": "MEDIUM",
+      "description": "Duplicate registration now returns 409 Conflict instead of 400. Feature list F-001 compliance.",
+      "status": "FIXED"
+    }
+  ],
+
+  "remaining_issues": [
+    {
+      "id": "ISSUE-003",
+      "severity": "HIGH",
+      "description": "Frontend Login.jsx still sends {username, password} but backend now expects {email, password}. This will cause a runtime error.",
+      "file": "src/components/Login.jsx",
+      "fix": "Change username state/field to email, update authAPI.login call to send {email, password}"
+    }
+  ]
+}
